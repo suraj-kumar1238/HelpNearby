@@ -4,7 +4,7 @@ const cors = require("cors");
 const path = require("path");
 
 require("dotenv").config({
-  path: path.join(__dirname, ".env")
+  path: path.join(__dirname, ".env"),
 });
 
 if (!process.env.JWT_SECRET || !process.env.MONGO_URI) {
@@ -17,21 +17,36 @@ const Booking = require("./models/Booking");
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
 
-const authMiddleware = require("./middleware/authMiddleware");
-const { requireAdmin } = require("./middleware/authMiddleware");
+const {
+  protect,
+  adminOnly,
+} = require("./middleware/authMiddleware");
 
 const app = express();
 
-app.use(cors());
+// CORS
+app.use(
+  cors({
+    origin: [
+      "https://help-nearby-six.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:5174",
+    ],
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 
+// ROLE CHECKS
 const requireCustomer = (req, res, next) => {
   if (req.user.role !== "customer") {
     return res.status(403).json({
       success: false,
-      message: "Customer access only"
+      message: "Customer access only",
     });
   }
   next();
@@ -41,12 +56,13 @@ const requireProvider = (req, res, next) => {
   if (req.user.role !== "provider") {
     return res.status(403).json({
       success: false,
-      message: "Provider access only"
+      message: "Provider access only",
     });
   }
   next();
 };
 
+// HOME
 app.get("/", (req, res) => {
   res.send("HelpNearby Backend is Running!");
 });
@@ -54,76 +70,66 @@ app.get("/", (req, res) => {
 // REGISTER PROVIDER
 app.post(
   "/api/providers/register",
-  authMiddleware,
+  protect,
   requireProvider,
   async (req, res) => {
     try {
       const {
         providerName,
-        email,
         mobile,
         service,
         state,
         city,
-        address
+        address,
       } = req.body;
 
-      if (
-        !providerName ||
-        !email ||
-        !mobile ||
-        !service ||
-        !state ||
-        !city ||
-        !address
-      ) {
+      if (!providerName || !mobile || !service || !state || !city || !address) {
         return res.status(400).json({
           success: false,
-          message: "Please fill all fields"
+          message: "Please fill all fields",
         });
       }
 
-      const user = await User.findById(req.user.id);
+      const user = await User.findById(req.user._id);
 
-      if (!user || user.email !== email.toLowerCase()) {
-        return res.status(403).json({
+      if (!user) {
+        return res.status(404).json({
           success: false,
-          message: "Use your registered provider email"
+          message: "Provider account not found",
         });
       }
 
       const existingProvider = await Provider.findOne({
-        $or: [{ email: email.toLowerCase() }, { user: user._id }]
+        $or: [{ email: user.email }, { user: user._id }],
       });
 
       if (existingProvider) {
         return res.status(400).json({
           success: false,
-          message: "Provider already registered"
+          message: "Provider already registered",
         });
       }
 
       const newProvider = await Provider.create({
         user: user._id,
         providerName,
-        email: email.toLowerCase(),
+        email: user.email,
         mobile,
         service,
         state,
         city,
-        address
+        address,
       });
 
       res.status(201).json({
         success: true,
         message: "Provider Registered Successfully!",
-        provider: newProvider
+        provider: newProvider,
       });
-
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
@@ -137,13 +143,12 @@ app.get("/api/providers", async (req, res) => {
     res.json({
       success: true,
       count: providers.length,
-      providers
+      providers,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -171,13 +176,12 @@ app.get("/api/providers/search", async (req, res) => {
     res.json({
       success: true,
       count: providers.length,
-      providers
+      providers,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -185,38 +189,29 @@ app.get("/api/providers/search", async (req, res) => {
 // CREATE BOOKING - CUSTOMER ONLY
 app.post(
   "/api/bookings",
-  authMiddleware,
+  protect,
   requireCustomer,
   async (req, res) => {
     try {
       const {
-        customerName,
-        mobile,
         service,
         bookingDate,
         address,
         description,
-        provider
+        provider,
       } = req.body;
 
-      if (
-        !customerName ||
-        !mobile ||
-        !service ||
-        !bookingDate ||
-        !address ||
-        !provider
-      ) {
+      if (!service || !bookingDate || !address || !provider) {
         return res.status(400).json({
           success: false,
-          message: "Please fill all required fields"
+          message: "Please fill all required fields",
         });
       }
 
       if (!mongoose.Types.ObjectId.isValid(provider)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid provider ID"
+          message: "Invalid provider ID",
         });
       }
 
@@ -225,86 +220,85 @@ app.post(
       if (!existingProvider) {
         return res.status(404).json({
           success: false,
-          message: "Provider not found"
+          message: "Provider not found",
         });
       }
 
       const newBooking = await Booking.create({
-        customer: req.user.id,
-        customerName,
-        mobile,
+        customer: req.user._id,
+        customerName: req.user.name,
+        mobile: req.user.mobile,
         service,
         bookingDate,
         address,
-        description,
-        provider
+        description: description || "",
+        provider: existingProvider._id,
       });
 
       res.status(201).json({
         success: true,
         message: "Booking created successfully!",
-        booking: newBooking
+        booking: newBooking,
       });
-
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
 );
 
 // GET BOOKINGS - ROLE BASED
-app.get("/api/bookings", authMiddleware, async (req, res) => {
+app.get("/api/bookings", protect, async (req, res) => {
   try {
     let filter = {};
 
     if (req.user.role === "customer") {
-      filter.customer = req.user.id;
+      filter.customer = req.user._id;
     } else if (req.user.role === "provider") {
       const provider = await Provider.findOne({
-        user: req.user.id
+        user: req.user._id,
       });
 
       if (!provider) {
         return res.json({
           success: true,
           count: 0,
-          bookings: []
+          bookings: [],
         });
       }
 
       filter.provider = provider._id;
-
     } else if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
-        message: "Access denied"
+        message: "Access denied",
       });
     }
 
     const bookings = await Booking.find(filter)
-      .populate("provider", "providerName service city");
+      .populate("provider", "providerName service city")
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
       count: bookings.length,
-      bookings
+      bookings,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
 
-// UPDATE BOOKING STATUS
+// UPDATE BOOKING STATUS - ADMIN ONLY
 app.patch(
   "/api/bookings/:id/status",
-  authMiddleware,
+  protect,
+  adminOnly,
   async (req, res) => {
     try {
       const { status } = req.body;
@@ -313,51 +307,20 @@ app.patch(
       const allowedStatuses = [
         "Accepted",
         "Rejected",
-        "Completed"
+        "Completed",
       ];
 
       if (!mongoose.Types.ObjectId.isValid(bookingId)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid booking ID"
+          message: "Invalid booking ID",
         });
       }
 
       if (!allowedStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid booking status"
-        });
-      }
-
-      const booking = await Booking.findById(bookingId);
-
-      if (!booking) {
-        return res.status(404).json({
-          success: false,
-          message: "Booking not found"
-        });
-      }
-
-      if (req.user.role === "provider") {
-        const provider = await Provider.findOne({
-          user: req.user.id
-        });
-
-        if (
-          !provider ||
-          booking.provider.toString() !== provider._id.toString()
-        ) {
-          return res.status(403).json({
-            success: false,
-            message: "You cannot update this booking"
-          });
-        }
-
-      } else if (req.user.role !== "admin") {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied"
+          message: "Invalid booking status",
         });
       }
 
@@ -367,22 +330,28 @@ app.patch(
         { new: true, runValidators: true }
       ).populate("provider", "providerName service city");
 
+      if (!updatedBooking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
       res.json({
         success: true,
         message: "Booking status updated successfully!",
-        booking: updatedBooking
+        booking: updatedBooking,
       });
-
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
   }
 );
 
-// START SERVER
+// SERVER START
 const PORT = process.env.PORT || 5000;
 
 async function startServer() {
@@ -395,7 +364,6 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
-
   } catch (error) {
     console.error("Server Start Error:", error.message);
     process.exit(1);

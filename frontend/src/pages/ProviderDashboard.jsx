@@ -1,161 +1,176 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
-function AdminDashboard() {
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://helpnearby-jgvg.onrender.com/api";
+
+function ProviderDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchBookings = async () => {
-    try {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        throw new Error("Please login first.");
-      }
-
-      const response = await fetch(
-        "http://localhost:5000/api/bookings",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to load bookings");
-      }
-
-      setBookings(Array.isArray(data.bookings) ? data.bookings : []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const user = JSON.parse(localStorage.getItem("user") || "null");
+
+        if (!token) {
+          throw new Error("Please login first.");
+        }
+
+        if (user?.role !== "provider") {
+          throw new Error("Please login with a Provider account.");
+        }
+
+        const response = await fetch(`${API_URL}/bookings`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to load bookings.");
+        }
+
+        const bookingList = Array.isArray(data.bookings)
+          ? data.bookings
+          : [];
+
+        setBookings(bookingList);
+      } catch (err) {
+        setError(err.message || "Unable to load bookings.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchBookings();
   }, []);
 
-  const updateStatus = async (id, status) => {
-    try {
-      const token = localStorage.getItem("token");
+  if (loading) {
+    return <h2 style={{ padding: "30px" }}>Loading Provider Dashboard...</h2>;
+  }
 
-      const response = await fetch(
-        `http://localhost:5000/api/bookings/${id}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ status })
-        }
-      );
+  if (error) {
+    return (
+      <div style={styles.container}>
+        <h2>{error}</h2>
+        <Link to="/login">Go to Login</Link>
+      </div>
+    );
+  }
 
-      const data = await response.json();
+  const pending = bookings.filter(
+    (booking) => booking.status === "Pending"
+  ).length;
 
-      if (!response.ok) {
-        throw new Error(data.message || "Status update failed");
-      }
+  const accepted = bookings.filter(
+    (booking) => booking.status === "Accepted"
+  ).length;
 
-      alert("Booking status updated!");
-      setLoading(true);
-      await fetchBookings();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+  const completed = bookings.filter(
+    (booking) => booking.status === "Completed"
+  ).length;
 
-  if (loading) return <h2>Loading Admin Dashboard...</h2>;
-  if (error) return <h2>{error}</h2>;
-
-  const pending = bookings.filter(b => b.status === "Pending").length;
-  const accepted = bookings.filter(b => b.status === "Accepted").length;
-  const completed = bookings.filter(b => b.status === "Completed").length;
-  const rejected = bookings.filter(b => b.status === "Rejected").length;
+  const rejected = bookings.filter(
+    (booking) => booking.status === "Rejected"
+  ).length;
 
   return (
-    <div style={{ padding: "30px" }}>
-      <h1>HelpNearby Admin Dashboard</h1>
-      <p>Manage all service bookings here.</p>
+    <div style={styles.container}>
+      <h1>Provider Dashboard</h1>
+      <p>Welcome to your HelpNearby Provider Dashboard.</p>
 
-      <h3>Total: {bookings.length}</h3>
-      <h3>Pending: {pending}</h3>
-      <h3>Accepted: {accepted}</h3>
-      <h3>Completed: {completed}</h3>
-      <h3>Rejected: {rejected}</h3>
+      <div style={styles.stats}>
+        <div style={styles.card}>Total Bookings: {bookings.length}</div>
+        <div style={styles.card}>Pending: {pending}</div>
+        <div style={styles.card}>Accepted: {accepted}</div>
+        <div style={styles.card}>Completed: {completed}</div>
+        <div style={styles.card}>Rejected: {rejected}</div>
+      </div>
+
+      <h2>Customer Bookings</h2>
 
       {bookings.length === 0 ? (
         <p>No bookings found.</p>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table
-            border="1"
-            cellPadding="10"
-            cellSpacing="0"
-            style={{ width: "100%", borderCollapse: "collapse" }}
-          >
+          <table style={styles.table}>
             <thead>
               <tr>
                 <th>Customer</th>
+                <th>Mobile</th>
                 <th>Service</th>
-                <th>Provider</th>
                 <th>Date</th>
                 <th>Address</th>
                 <th>Status</th>
-                <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {bookings.map(booking => (
+              {bookings.map((booking) => (
                 <tr key={booking._id}>
                   <td>{booking.customerName}</td>
+                  <td>{booking.mobile}</td>
                   <td>{booking.service}</td>
-                  <td>{booking.provider?.providerName || "Not assigned"}</td>
                   <td>
                     {booking.bookingDate
                       ? new Date(booking.bookingDate).toLocaleDateString()
                       : "N/A"}
                   </td>
                   <td>{booking.address}</td>
-                  <td>{booking.status}</td>
-                  <td>
-                    {booking.status === "Pending" && (
-                      <>
-                        <button onClick={() => updateStatus(booking._id, "Accepted")}>
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => updateStatus(booking._id, "Rejected")}
-                          style={{ marginLeft: "5px" }}
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-
-                    {booking.status === "Accepted" && (
-                      <button onClick={() => updateStatus(booking._id, "Completed")}>
-                        Complete
-                      </button>
-                    )}
-
-                    {(booking.status === "Completed" ||
-                      booking.status === "Rejected") && <span>No Action</span>}
-                  </td>
+                  <td>{booking.status || "Pending"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <Link to="/" style={styles.backLink}>
+        Back to Home
+      </Link>
     </div>
   );
 }
 
-export default AdminDashboard;
+const styles = {
+  container: {
+    padding: "30px",
+    maxWidth: "1200px",
+    margin: "auto",
+  },
+
+  stats: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "15px",
+    margin: "25px 0",
+  },
+
+  card: {
+    background: "#f1f5f9",
+    padding: "18px",
+    borderRadius: "8px",
+    fontWeight: "bold",
+  },
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    textAlign: "left",
+  },
+
+  backLink: {
+    display: "inline-block",
+    marginTop: "25px",
+  },
+};
+
+export default ProviderDashboard;

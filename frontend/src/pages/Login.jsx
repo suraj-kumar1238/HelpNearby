@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../Auth.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://helpnearby-jgvg.onrender.com/api";
+
 function Login() {
   const navigate = useNavigate();
 
@@ -23,21 +27,22 @@ function Login() {
     try {
       setLoading(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(loginData),
-        }
-      );
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginData),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || "Login failed");
+      }
+
+      if (!data.token || !data.user) {
+        throw new Error("Invalid response from server");
       }
 
       localStorage.setItem("token", data.token);
@@ -66,7 +71,9 @@ function Login() {
         <p>Login to your HelpNearby account</p>
 
         {error && (
-          <p style={{ color: "red" }}>{error}</p>
+          <p style={{ color: "red", marginBottom: "12px" }}>
+            {error}
+          </p>
         )}
 
         <label>Email</label>

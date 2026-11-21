@@ -1,55 +1,81 @@
 const jwt = require("jsonwebtoken");
-const dotenv = require("dotenv");
-const path = require("path");
+const User = require("../models/User");
 
-dotenv.config({
-  path: path.join(__dirname, "../.env")
-});
-
-// Verify user login token
-const authMiddleware = (req, res, next) => {
+// Check user login
+const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
-        success: false,
-        message: "Authentication required"
+        message: "Please login first.",
       });
     }
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        message: "JWT_SECRET is missing.",
+      });
+    }
 
-    req.user = decoded;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    const user = await User.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found. Please login again.",
+      });
+    }
+
+    req.user = user;
     next();
 
   } catch (error) {
     return res.status(401).json({
-      success: false,
-      message: "Invalid or expired token"
+      message: "Invalid or expired token. Please login again.",
     });
   }
 };
 
-// Allow only admin users
-const requireAdmin = (req, res, next) => {
+// Allow only Admin
+const adminOnly = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
-      success: false,
-      message: "Admin access denied"
+      message: "Access denied. Admin only.",
     });
   }
 
   next();
 };
 
-module.exports = authMiddleware;
-module.exports.authMiddleware = authMiddleware;
-module.exports.authenticateToken = authMiddleware;
-module.exports.requireAdmin = requireAdmin;
+// Allow only Provider
+const providerOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== "provider") {
+    return res.status(403).json({
+      message: "Access denied. Provider only.",
+    });
+  }
+
+  next();
+};
+
+// Allow only Customer
+const customerOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== "customer") {
+    return res.status(403).json({
+      message: "Access denied. Customer only.",
+    });
+  }
+
+  next();
+};
+
+module.exports = {
+  protect,
+  adminOnly,
+  providerOnly,
+  customerOnly,
+};

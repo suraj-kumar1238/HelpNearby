@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 
+const API_URL = "https://helpnearby-jgvg.onrender.com/api";
+
 function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,14 +18,11 @@ function AdminDashboard() {
         return;
       }
 
-      const response = await fetch(
-        "http://localhost:5000/api/bookings",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${API_URL}/bookings`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await response.json();
 
@@ -51,7 +50,7 @@ function AdminDashboard() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        `http://localhost:5000/api/bookings/${bookingId}/status`,
+        `${API_URL}/bookings/${bookingId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -122,7 +121,9 @@ function AdminDashboard() {
                   <td>{booking.customerName}</td>
                   <td>{booking.service}</td>
                   <td>{booking.provider?.providerName || "N/A"}</td>
-                  <td>{new Date(booking.bookingDate).toLocaleDateString()}</td>
+                  <td>
+                    {new Date(booking.bookingDate).toLocaleDateString()}
+                  </td>
                   <td>{booking.address}</td>
                   <td>{booking.status}</td>
                   <td>

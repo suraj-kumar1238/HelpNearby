@@ -2,13 +2,16 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../Auth.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://helpnearby-jgvg.onrender.com/api";
+
 function Register() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
   const [role, setRole] = useState("customer");
 
   const handleRegister = async (e) => {
@@ -24,22 +27,19 @@ function Register() {
       email: form.email.value.trim(),
       mobile: form.mobile.value.trim(),
       password: form.password.value,
-      role: role
+      role,
     };
 
     try {
       setLoading(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/auth/register",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(userData)
-        }
-      );
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
 
       const data = await response.json();
 
@@ -50,11 +50,11 @@ function Register() {
       setSuccess("Account created successfully!");
 
       form.reset();
+      setRole("customer");
 
       setTimeout(() => {
         navigate("/login");
       }, 1500);
-
     } catch (err) {
       setError(err.message || "Server connection failed");
     } finally {
@@ -92,7 +92,7 @@ function Register() {
           type="tel"
           name="mobile"
           pattern="[0-9]{10}"
-          maxLength="10"
+          maxLength={10}
           placeholder="10 digit mobile number"
           required
         />
@@ -101,7 +101,7 @@ function Register() {
         <input
           type="password"
           name="password"
-          minLength="8"
+          minLength={8}
           placeholder="Create password"
           required
         />

@@ -25,7 +25,8 @@ import ProviderDashboard from "./pages/ProviderDashboard";
 
 import "./App.css";
 
-const API_URL = "http://localhost:5000/api/providers";
+// LIVE BACKEND API
+const API_URL = "https://helpnearby-jgvg.onrender.com/api/providers";
 
 const categories = [
   { name: "Electrician", icon: Zap, color: "orange" },
@@ -44,7 +45,7 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch providers from backend
+  // FETCH PROVIDERS
   useEffect(() => {
     const fetchProviders = async () => {
       try {
@@ -65,7 +66,9 @@ function Home() {
         setError("");
       } catch (err) {
         console.error("Provider Fetch Error:", err);
-        setError(err.message || "Unable to load providers.");
+        setError(
+          "Unable to connect to server. Please try again later."
+        );
       } finally {
         setLoading(false);
       }
@@ -74,7 +77,7 @@ function Home() {
     fetchProviders();
   }, []);
 
-  // Search providers
+  // SEARCH PROVIDERS
   const handleSearch = (selectedService = service) => {
     const searchService = selectedService.toLowerCase().trim();
     const searchLocation = location.toLowerCase().trim();
@@ -101,13 +104,13 @@ function Home() {
     setSearched(true);
   };
 
-  // Category click
+  // CATEGORY CLICK
   const handleCategoryClick = (categoryName) => {
     setService(categoryName);
     handleSearch(categoryName);
   };
 
-  // Show all providers
+  // VIEW ALL PROVIDERS
   const handleViewAll = () => {
     setService("");
     setLocation("");
@@ -119,6 +122,7 @@ function Home() {
 
   return (
     <div className="app">
+
       {/* NAVBAR */}
       <nav className="navbar">
         <div className="logo">
@@ -165,6 +169,7 @@ function Home() {
       {/* HERO SECTION */}
       <section className="hero" id="home">
         <div className="hero-content">
+
           <span className="hero-tag">
             <ShieldCheck size={16} />
             Trusted Local Services
@@ -182,6 +187,7 @@ function Home() {
           </p>
 
           <div className="search-box">
+
             <div className="search-input">
               <Wrench size={20} />
 
@@ -211,12 +217,14 @@ function Home() {
               <Search size={18} />
               Search
             </button>
+
           </div>
         </div>
       </section>
 
       {/* SERVICES SECTION */}
       <section className="services-section" id="services">
+
         <div className="section-heading">
           <span>OUR SERVICES</span>
 
@@ -248,10 +256,12 @@ function Home() {
             );
           })}
         </div>
+
       </section>
 
       {/* PROVIDERS SECTION */}
       <section className="providers-section">
+
         <div className="section-heading">
           <span>NEARBY PROFESSIONALS</span>
 
@@ -276,17 +286,23 @@ function Home() {
         </div>
 
         {loading ? (
-          <p className="message">Loading providers...</p>
+          <p className="message">
+            Loading providers...
+          </p>
         ) : error ? (
-          <p className="message error-message">{error}</p>
+          <p className="message error-message">
+            {error}
+          </p>
         ) : displayedProviders.length === 0 ? (
           <p className="message">
             No providers found. Try another service or location.
           </p>
         ) : (
           <div className="provider-grid">
+
             {displayedProviders.map((provider) => (
               <div className="provider-card" key={provider._id}>
+
                 <div className="provider-icon">
                   <Wrench size={28} />
                 </div>
@@ -311,14 +327,18 @@ function Home() {
                   Book Service
                   <ArrowRight size={16} />
                 </Link>
+
               </div>
             ))}
+
           </div>
         )}
+
       </section>
 
       {/* PROVIDER REGISTRATION */}
       <section className="provider-cta" id="about">
+
         <h2>Are You a Service Professional?</h2>
 
         <p>
@@ -332,18 +352,24 @@ function Home() {
           Register as Provider
           <ArrowRight size={18} />
         </Link>
+
       </section>
 
       {/* FOOTER */}
       <footer className="footer">
+
         <h2>HelpNearby</h2>
 
         <p>
           Connecting people with trusted local service providers.
         </p>
 
-        <p>© 2026 HelpNearby. All Rights Reserved.</p>
+        <p>
+          © 2026 HelpNearby. All Rights Reserved.
+        </p>
+
       </footer>
+
     </div>
   );
 }
@@ -353,6 +379,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+
         <Route path="/" element={<Home />} />
 
         <Route path="/login" element={<Login />} />
@@ -377,6 +404,7 @@ function App() {
           path="/provider-dashboard"
           element={<ProviderDashboard />}
         />
+
       </Routes>
     </BrowserRouter>
   );

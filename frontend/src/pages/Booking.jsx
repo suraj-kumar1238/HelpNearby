@@ -1,32 +1,49 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://helpnearby-jgvg.onrender.com/api";
+
+const initialFormData = {
+  customerName: "",
+  mobile: "",
+  service: "",
+  bookingDate: "",
+  address: "",
+  description: "",
+  provider: "",
+};
 
 function Booking() {
+  const navigate = useNavigate();
+
   const [providers, setProviders] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
-    customerName: "",
-    mobile: "",
-    service: "",
-    bookingDate: "",
-    address: "",
-    description: "",
-    provider: ""
-  });
+  const [formData, setFormData] = useState(initialFormData);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/providers")
-      .then((res) => res.json())
-      .then((data) => {
+    const loadProviders = async () => {
+      try {
+        const response = await fetch(`${API_URL}/providers`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to load providers.");
+        }
+
         setProviders(data.providers || []);
+      } catch (error) {
+        setMessage(error.message || "Unable to load providers.");
+      } finally {
         setLoading(false);
-      })
-      .catch(() => {
-        setMessage("Unable to load providers.");
-        setLoading(false);
-      });
+      }
+    };
+
+    loadProviders();
   }, []);
 
   const handleChange = (e) => {
@@ -37,16 +54,16 @@ function Booking() {
         (item) => item._id === value
       );
 
-      setFormData({
-        ...formData,
+      setFormData((previous) => ({
+        ...previous,
         provider: value,
-        service: selectedProvider ? selectedProvider.service : ""
-      });
+        service: selectedProvider?.service || "",
+      }));
     } else {
-      setFormData({
-        ...formData,
-        [name]: value
-      });
+      setFormData((previous) => ({
+        ...previous,
+        [name]: value,
+      }));
     }
   };
 
@@ -55,26 +72,29 @@ function Booking() {
     setMessage("");
 
     const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("user") || "null");
 
     if (!token) {
       setMessage("Please login as Customer before booking.");
       return;
     }
 
+    if (user?.role !== "customer") {
+      setMessage("Only customers can book a service.");
+      return;
+    }
+
     try {
       setSubmitting(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/bookings",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify(formData)
-        }
-      );
+      const response = await fetch(`${API_URL}/bookings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
 
       const data = await response.json();
 
@@ -83,17 +103,7 @@ function Booking() {
       }
 
       setMessage("Booking created successfully!");
-
-      setFormData({
-        customerName: "",
-        mobile: "",
-        service: "",
-        bookingDate: "",
-        address: "",
-        description: "",
-        provider: ""
-      });
-
+      setFormData(initialFormData);
     } catch (error) {
       setMessage(error.message || "Server connection failed.");
     } finally {
@@ -106,7 +116,9 @@ function Booking() {
       <h1>Book a Service</h1>
       <p>Choose a professional and book your service.</p>
 
-      {message && <p>{message}</p>}
+      {message && (
+        <p style={styles.message}>{message}</p>
+      )}
 
       {loading ? (
         <p>Loading providers...</p>
@@ -130,6 +142,7 @@ function Booking() {
             value={formData.mobile}
             onChange={handleChange}
             pattern="[0-9]{10}"
+            maxLength={10}
             required
           />
 
@@ -160,7 +173,6 @@ function Booking() {
             name="bookingDate"
             value={formData.bookingDate}
             onChange={handleChange}
-            min={new Date().toISOString().slice(0, 16)}
             required
           />
 
@@ -184,6 +196,14 @@ function Booking() {
           </button>
         </form>
       )}
+
+      <button
+        type="button"
+        onClick={() => navigate("/")}
+        style={styles.backButton}
+      >
+        Back to Home
+      </button>
     </div>
   );
 }
@@ -195,14 +215,26 @@ const styles = {
     padding: "25px",
     background: "white",
     borderRadius: "12px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.1)"
+    boxShadow: "0 2px 12px rgba(0,0,0,0.1)",
   },
 
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: "15px"
-  }
+    gap: "15px",
+  },
+
+  message: {
+    padding: "10px",
+    background: "#f1f5f9",
+    borderRadius: "6px",
+  },
+
+  backButton: {
+    marginTop: "15px",
+    padding: "10px 15px",
+    cursor: "pointer",
+  },
 };
 
 export default Booking;
